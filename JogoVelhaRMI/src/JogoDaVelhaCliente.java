@@ -1,30 +1,37 @@
-import javax.swing.*;
-import java.awt.*;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
+import javax.swing.*;
+import java.awt.Font;
+import java.awt.event.ActionEvent;
 
 public class JogoDaVelhaCliente extends JFrame implements JogoDaVelhaClienteInterface {
-    JButton[] bt = new JButton[9];
-    JLabel placar = new JLabel("PLACAR");
-    JLabel px = new JLabel("X -> 0");
-    JLabel po = new JLabel("O -> 0");
-    boolean minhaVez = false;
-    String jogadorSimbolo;
+    private JButton[] bt = new JButton[9];
+    private JButton novo = new JButton("Novo Jogo");
+    private JButton zerar = new JButton("Zerar Placar");
 
-    JogoDaVelhaInterface servidor;
+    private JLabel placar = new JLabel("PLACAR");
+    private JLabel px = new JLabel("X -> 0");
+    private JLabel po = new JLabel("O -> 0");
 
-    public JogoDaVelhaCliente(String jogadorSimbolo) {
+    private boolean minhaVez = false;
+    private String jogadorSimbolo;
+
+    private JogoDaVelhaInterface servidor;
+
+    public JogoDaVelhaCliente(String jogadorSimbolo) throws RemoteException {
         this.jogadorSimbolo = jogadorSimbolo;
+
         try {
-            servidor = (JogoDaVelhaInterface) Naming.lookup("//localhost/JogoDaVelha");
-            servidor.registrarCliente(this);
+            servidor = (JogoDaVelhaInterface) Naming.lookup("//localhost:2000/JogoDaVelha");
+            servidor.registrarJogador(this, jogadorSimbolo);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+        // Definir a tela
         setVisible(true);
         setTitle("Jogo da Velha");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(3);
         setLayout(null);
         setBounds(500, 300, 700, 500);
 
@@ -35,52 +42,93 @@ public class JogoDaVelhaCliente extends JFrame implements JogoDaVelhaClienteInte
         px.setBounds(430, 75, 140, 50);
         po.setBounds(480, 75, 140, 50);
 
-        criarBotoes();
+        add(novo);
+        add(zerar);
+        novo.setBounds(410, 130, 140, 30);
+        zerar.setBounds(410, 180, 140, 30);
 
-    }
+        novo.addActionListener((ActionEvent e) -> {
+            try {
+                servidor.reiniciarJogo();
+            } catch (RemoteException remoteException) {
+                remoteException.printStackTrace();
+            }
+        });
 
-    public void criarBotoes() {
-        bt = new JButton[9];
+        zerar.addActionListener((ActionEvent e) -> {
+            try {
+                servidor.zerarPlacar();
+            } catch (RemoteException remoteException) {
+                remoteException.printStackTrace();
+            }
+        });
+
+        criarBotao(bt);
+
+        if (jogadorSimbolo == "X") {
+            minhaVez = true;
+        }
+
         for (int i = 0; i < 9; i++) {
             int index = i;
-            bt[i] = new JButton();
-            bt[i].setBounds((100 * (i % 3)) + 50, (100 * (i / 3)) + 50, 95, 95);
-            bt[i].setFont(new Font("Arial", Font.BOLD, 40));
-            add(bt[i]);
-
-            bt[i].addActionListener(e -> {
-                System.out.println("Botão " + index + " clicado");
+            bt[i].addActionListener((ActionEvent e) -> {
                 if (minhaVez && bt[index].getText().equals("")) {
+                    System.out.println("Cliente fazendo jogada no índice " + index);
                     try {
-                        System.out.println("Jogada enviada: " + jogadorSimbolo + " no índice " + index);
-                        servidor.novaJogada(index, jogadorSimbolo);
+                        servidor.fazerJogada(index, jogadorSimbolo);
                         minhaVez = false;
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
+                    } catch (RemoteException remoteException) {
+                        remoteException.printStackTrace();
                     }
                 } else {
-                    System.out.println("Não é sua vez ou a posição já está preenchida.");
+                    System.out.println("Jogada invalida , oiii");
                 }
             });
         }
     }
 
-    @Override
-    public void suaVez(String jogadorSimbolo) throws RemoteException {
-        minhaVez = this.jogadorSimbolo.equals(jogadorSimbolo);
-        System.out.println("Sua vez: " + jogadorSimbolo);
-    }
-
-    @Override
-    public void atualizarTabuleiro(String estadoTabuleiro) throws RemoteException {
-        String[] partes = estadoTabuleiro.split(",");
-        for (int i = 0; i < partes.length; i++) {
-            bt[i].setText(partes[i]);
+    private void criarBotao(JButton[] bt) {
+        int cont = 0;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                bt[cont] = new JButton();
+                add(bt[cont]);
+                bt[cont].setBounds((100 * j) + 50, (100 * i) + 50, 95, 95);
+                bt[cont].setFont(new Font("Arial", Font.BOLD, 40));
+                cont++;
+            }
         }
     }
 
+    @Override
+    public void atualizarTabuleiro(int index, String simbolo) throws RemoteException {
+        System.out.println("Atualizando tabuleiro no cliente. Índice: " + index + " , Símbolo: " + simbolo);
+        bt[index].setText(simbolo);
+    }
+
+    @Override
+    public void atualizarPlacar(int pontosX, int pontosO) throws RemoteException {
+        px.setText("X -> " + pontosX);
+        po.setText("O -> " + pontosO);
+    }
+
+    @Override
+    public void notificarVitoria(String vencedor) throws RemoteException {
+        JOptionPane.showMessageDialog(this, "Jogador " + vencedor + " venceu!");
+    }
+
+    @Override
+    public void notificarSuaVez() throws RemoteException {
+        System.out.println("É a sua vez! Jogador: " + jogadorSimbolo);
+        minhaVez = true;
+        JOptionPane.showMessageDialog(this, "Sua vez!");
+    }
+
     public static void main(String[] args) {
-        String jogadorSimbolo = args.length > 0 ? args[0] : "X";
-        new JogoDaVelhaCliente(jogadorSimbolo);
+        try {
+            new JogoDaVelhaCliente(args[0]); // Passar "X" ou "O" como argumento ao rodar o cliente
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 }
