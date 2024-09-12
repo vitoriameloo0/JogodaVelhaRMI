@@ -2,11 +2,11 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 public interface JogoDaVelhaServidorInterface extends Remote {
-    void registrarJogador(JogoDaVelhaClienteInterface cliente, String simbolo) throws RemoteException;
 
-    void fazerJogada(int index, String simbolo) throws RemoteException;
+    public void logar(JogoDaVelhaClienteInterface cliente) throws RemoteException;
 
-    void reiniciarJogo() throws RemoteException;
+    public void jogar(int id, int linha, int coluna) throws RemoteException;
 
-    void zerarPlacar() throws RemoteException;
+    public void deslogar(JogoDaVelhaClienteInterface cliente) throws RemoteException;
+
 }

@@ -7,12 +7,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 
-/**
- *
- * @author ricardo
- * 
- * Classe que implementa a tela do jogador. Está contém a logica de jogadas e a interface.
- */
 public class TelaJogador extends javax.swing.JFrame {
 
     private int id;
