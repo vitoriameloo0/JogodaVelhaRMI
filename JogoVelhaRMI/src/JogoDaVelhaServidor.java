@@ -3,7 +3,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JogoDaVelhaServidor extends UnicastRemoteObject implements JogoDaVelhaInterface {
+public class JogoDaVelhaServidor extends UnicastRemoteObject implements JogoDaVelhaServidorInterface {
     private List<JogoDaVelhaClienteInterface> clientes = new ArrayList<>();
     private String[] tabuleiro = new String[9];
     private int pontosX = 0;
