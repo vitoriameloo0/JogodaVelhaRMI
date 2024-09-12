@@ -5,7 +5,7 @@ import java.rmi.registry.Registry;
 
 public class JogoDaVelhaServidor {
 
-    private static String ip = " ";
+    private static String ip = "172.16.65.192";
     private static String nomeServico = "JogoDaVelha";
 
     public static void main(String args[]) {

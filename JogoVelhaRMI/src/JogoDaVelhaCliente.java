@@ -6,7 +6,7 @@ import java.rmi.RemoteException;
 public class JogoDaVelhaCliente {
     private static JogoDaVelhaClienteInterface jogador;
     private static TelaJogador tela;
-    private static String  ip = "localhost";
+    private static String  ip = "172.16.65.192";
     private static String nomeServico = "JogoDaVelha";
     
     public static void main(String args[]) {

@@ -35,7 +35,10 @@ public class JogoDaVelhaServidorIMP extends UnicastRemoteObject implements JogoD
         if (idJogador < 2) {
             jogadores.put(idJogador, cliente);
             System.out.println("Server: jogador " + idJogador + " logado com sucesso.");
+
+            System.out.println("Server: " + jogadores.size() + " jogadores logados.");
             cliente.setIdJogador(idJogador);
+            System.out.println("Server: id do jogador: " + idJogador);
             cliente.getRespostaServidor("Logado com sucesso.");
             idJogador++;
             if (idJogador < 2) {

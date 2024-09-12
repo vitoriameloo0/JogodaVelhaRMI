@@ -24,7 +24,9 @@ public class JogoDaVelhaClienteImplementacao extends UnicastRemoteObject impleme
     @Override
     public void setIdJogador(int id) throws RemoteException {
         this.id = id;
+
         tela.setId(id);
+    
     }
 
     /*Método para permitir que um jogador faça sua jogada*/

@@ -49,11 +49,9 @@ public class TelaJogador extends javax.swing.JFrame {
 
     /*Método para definir as imagens do jogo*/
     public void setImagemBotoes(int id) {
-        //if(id == 0) {
-        //imagemBotoes = Toolkit.getDefaultToolkit().getImage("imagens/O.jpg");
 
-        //} 
         imagemBotao = new ImageIcon(getClass().getClassLoader().getResource("imagens/OO.png"));
+
         imagemBotaoAdversario = new ImageIcon(getClass().getClassLoader().getResource("imagens/XX.png"));
     }
 
