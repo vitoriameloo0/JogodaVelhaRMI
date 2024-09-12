@@ -16,13 +16,13 @@ public class JogoDaVelhaCliente extends JFrame implements JogoDaVelhaClienteInte
     private boolean minhaVez = false;
     private String jogadorSimbolo;
 
-    private JogoDaVelhaInterface servidor;
+    private JogoDaVelhaServidorInterface servidor;
 
     public JogoDaVelhaCliente(String jogadorSimbolo) throws RemoteException {
         this.jogadorSimbolo = jogadorSimbolo;
 
         try {
-            servidor = (JogoDaVelhaInterface) Naming.lookup("//localhost:2000/JogoDaVelha");
+            servidor = (JogoDaVelhaServidorInterface) Naming.lookup("//localhost:2000/JogoDaVelha");
             servidor.registrarJogador(this, jogadorSimbolo);
         } catch (Exception e) {
             e.printStackTrace();
