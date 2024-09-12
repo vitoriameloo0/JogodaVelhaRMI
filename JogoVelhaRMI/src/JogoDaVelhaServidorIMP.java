@@ -1,142 +1,284 @@
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class JogoDaVelhaServidorIMP extends UnicastRemoteObject implements JogoDaVelhaServidorInterface {
-    private List<JogoDaVelhaClienteInterface> clientes = new ArrayList<>();
-    private String[] tabuleiro = new String[9];
-    private int pontosX = 0;
-    private int pontosO = 0;
-    private boolean turnoX = true; // X começa o jogo
+   private int tabuleiro[][];
+    private int numeroJogada;
+    private Map<Integer, JogoDaVelhaClienteInterface> jogadores;
+    private int idJogador;
+    private Placar placar;
+
+    private static final long serialVersionUID = 1L;
 
     protected JogoDaVelhaServidorIMP() throws RemoteException {
         super();
-        limparTabuleiro();
-    }
+        placar = new Placar();
+        jogadores = new HashMap<Integer, JogoDaVelhaClienteInterface>();
+        idJogador = 0;
 
-    private void limparTabuleiro() {
-        for (int i = 0; i < 9; i++) {
-            tabuleiro[i] = "";
+        tabuleiro = new int[3][3];
+        numeroJogada = 0;
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                tabuleiro[i][j] = 9;
+            }
         }
     }
 
     @Override
-    public synchronized void registrarJogador(JogoDaVelhaClienteInterface cliente, String simbolo)
-            throws RemoteException {
-        if (clientes.size() <= 2) {
-            clientes.add(cliente);
-            System.out.println("Jogador registrado: " + simbolo);
-            if (clientes.size() == 2) {
-                notificarVez();
-            }
-        } else {
-            cliente.atualizarPlacar(pontosX, pontosO); // Atualizar placar caso o jogador entre após o início do jogo
-        }
-    }
-
-    @Override
-    public synchronized void fazerJogada(int index, String simbolo) throws RemoteException {
-        System.out.println("Recebendo jogada: " + simbolo + " no índice " + index);
-
-        if (tabuleiro[index].equals("")) {
-            tabuleiro[index] = simbolo;
-            System.out.println("Jogada registrada no tabuleiro");
-
-            for (JogoDaVelhaClienteInterface cliente : clientes) {
-                cliente.atualizarTabuleiro(index, simbolo);
-            }
-
-            if (verificarVitoria(simbolo)) {
-                for (JogoDaVelhaClienteInterface cliente : clientes) {
-                    cliente.notificarVitoria(simbolo);
-                }
-
-                if (simbolo.equals("X")) {
-                    pontosX++;
-                } else {
-                    pontosO++;
-                }
-
-                reiniciarJogo();
-            } else if (verificarEmpate()) {
-                for (JogoDaVelhaClienteInterface cliente : clientes) {
-                    cliente.notificarVitoria("Empate");
-                }
-                reiniciarJogo();
+    public synchronized void logar(JogoDaVelhaClienteInterface cliente) throws RemoteException {
+        if (idJogador < 2) {
+            jogadores.put(idJogador, cliente);
+            System.out.println("Server: jogador " + idJogador + " logado com sucesso.");
+            cliente.setIdJogador(idJogador);
+            cliente.getRespostaServidor("Logado com sucesso.");
+            idJogador++;
+            if (idJogador < 2) {
+                cliente.getRespostaServidor("Aguardando o próximo jogador...");
             } else {
-                turnoX = !turnoX;
-                notificarVez();
+                for (int i = 0; i < 2; i++) {
+                    jogadores.get(i).getRespostaServidor("Aguarde a jogada do outro jogador!");
+                }
+                atualizaPlacar();
+                iniciarPartida();
             }
         } else {
-            System.out.println("Jogada inválida, posição já ocupada.");
+            cliente.getRespostaServidor("Impossível logar: O servidor está lotado. ");
+            cliente.setIdJogador(-1);
+//            cliente.finalizarProcessoCliente();
+        }
+
+    }
+    @Override
+    public void jogar(int id, int linha, int coluna) throws RemoteException {
+    	
+    	/*Jogada especial que contém tanto linha quanto coluna -1
+    	 * Está jogada significa deisitencia/tela fechada*/
+    	if(jogadores.containsKey(id)) {//Testa se o jogador está jogando
+	    	if(linha < 0 || coluna < 0) {
+	    		/*Caso tenha mais de um jogador logado, apresentar a mensagem de vencedor para o outro jogador
+	    		 * e então finalizar o jogo para o vencedor. O desistente será finalizado
+	    		 * 
+	    		 * Caso tenha apenas um jogador, este será finalizado*/
+	    		if(jogadores.size() > 1) {
+		    		jogadores.get(Math.abs(1 - id)).getRespostaServidor("Voce venceu!");
+		        	jogadores.get(Math.abs(1 - id)).finalizarJogo();
+		        	//Cria um novo jogador para adquirir a interface do id, remover o id do hash e então
+		        	//destruir a referencia desta interface
+		        	JogoDaVelhaClienteInterface jogador = jogadores.get(id);
+		        	jogadores.remove(id);
+		        	
+		        	
+		        	resetaPartida();
+		        	
+		        	
+		        	jogador.finalizarProcessoCliente();		        	
+	    		}
+	    		else {
+//	    			jogadores.get(id).finalizarProcessoCliente();
+	    			
+	    			JogoDaVelhaClienteInterface jogador = jogadores.get(id);
+		        	jogadores.remove(id);
+		        	
+		        	resetaPartida();
+		        	
+		        	jogador.finalizarProcessoCliente();
+
+	    		}	
+	    	}
+    	}
+    	else//Caso não esteja, manda o Exception que causa o cliente a deslogar sem afetar o jogo
+    		throw new RemoteException();
+
+        this.tabuleiro[linha][coluna] = id;
+        numeroJogada++;
+        if (numeroJogada >= 5) {
+            boolean isVencedor = processarVencedor(id);
+            if (isVencedor) {               
+                jogadores.get(id).getRespostaServidor("Voce venceu!");
+                jogadores.get(id).finalizarJogo();
+                jogadores.get(Math.abs(1 - id)).getJogadaAdversario(id, linha, coluna);
+                jogadores.get(Math.abs(1 - id)).getRespostaServidor("Voce perdeu!");
+                jogadores.get(Math.abs(1 - id)).finalizarJogo();
+                placar.setIdVencedor(id);
+				resetaPartida();
+            } else {
+                if (numeroJogada == 9) {
+                    jogadores.get(id).getRespostaServidor("Deu Velha!");
+                    jogadores.get(Math.abs(1 - id)).getJogadaAdversario(id, linha, coluna);
+                    jogadores.get(Math.abs(1 - id)).getRespostaServidor("Deu vellha!");
+                    resetaPartida();
+
+                } else {               
+                    jogadores.get(id).getRespostaServidor("Aguarde a jogada do outro jogador!");
+                    jogadores.get(Math.abs(1 - id)).getJogadaAdversario(id, linha, coluna);
+                    jogadores.get(Math.abs(1 - id)).autorizarJogada(this);
+                }
+            }
+        } else {        
+            jogadores.get(id).getRespostaServidor("Aguarde a jogada do outro jogador!");
+            jogadores.get(Math.abs(1 - id)).getJogadaAdversario(id, linha, coluna);
+            jogadores.get(Math.abs(1 - id)).autorizarJogada(this);
         }
     }
 
     @Override
-    public void reiniciarJogo() throws RemoteException {
-        limparTabuleiro();
-        turnoX = true;
+    public synchronized void deslogar(JogoDaVelhaClienteInterface cliente) throws RemoteException {
+        // TODO Auto-generated method stub
 
-        for (JogoDaVelhaClienteInterface cliente : clientes) {
-            cliente.atualizarPlacar(pontosX, pontosO);
-        }
-
-        notificarVez();
     }
 
-    @Override
-    public void zerarPlacar() throws RemoteException {
-        pontosX = 0;
-        pontosO = 0;
-        reiniciarJogo();
-    }
-
-    private void notificarVez() throws RemoteException {
-        if (turnoX) {
-            System.out.println("É a vez do jogador X");
-            clientes.get(0).notificarSuaVez();
+    private void sortearPrimeiroJogador() {
+        if (Math.random() < 0.5) {
+            try {
+                jogadores.get(0).autorizarJogada(this);
+            } catch (RemoteException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
         } else {
-            System.out.println("É a vez do jogador O");
-            clientes.get(1).notificarSuaVez();
+            try {
+                jogadores.get(1).autorizarJogada(this);
+            } catch (RemoteException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
         }
     }
 
-    private boolean verificarVitoria(String simbolo) {
-        int[][] combinacoes = {
-                { 0, 1, 2 }, { 3, 4, 5 }, { 6, 7, 8 },
-                { 0, 3, 6 }, { 1, 4, 7 }, { 2, 5, 8 },
-                { 0, 4, 8 }, { 2, 4, 6 }
-        };
+    private void iniciarPartida() {
+        sortearPrimeiroJogador();
+    }
+    private void atualizaPlacar() {
+    	placar.atualizarPlacar();
+    	String pontuacao = placar.toString();
+    	try {
+			jogadores.get(0).setPlacar(pontuacao);
+			jogadores.get(1).setPlacar(pontuacao);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+    	
+    	
+    }
+    
+    private void resetaPartida() {
+    	numeroJogada = 0;
+    	
+    	for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                tabuleiro[i][j] = 9;
+            }
+        }
+    	
+    	if(jogadores.containsKey(0)) {
+    		try {
+    			jogadores.get(0).resetaTela();
+    			jogadores.get(0).criarTela(0);
+			} catch (RemoteException e) {}
+    		
+    	}
+    	if(jogadores.containsKey(1)) {
+	    	try {
+	    		jogadores.get(1).resetaTela();
+	    		jogadores.get(1).criarTela(1);
+	    	}
+	    	catch(Exception e) {}
+    	}
 
-        for (int[] combinacao : combinacoes) {
-            if (tabuleiro[combinacao[0]].equals(simbolo) &&
-                    tabuleiro[combinacao[1]].equals(simbolo) &&
-                    tabuleiro[combinacao[2]].equals(simbolo)) {
+    	if(jogadores.size() > 1) {
+    		atualizaPlacar();
+    		sortearPrimeiroJogador();
+    	}
+    	else {
+    		placar.limpaPlacar();
+    		if(jogadores.size() == 0)
+    			idJogador = 0;
+    		else {
+    			idJogador = 1;
+	    		if(jogadores.containsKey(1)) {
+	    			JogoDaVelhaClienteInterface jogador = jogadores.get(1);
+	    			jogadores.remove(1);
+	    			try {
+						jogador.setIdJogador(0);
+						jogadores.put(0, jogador);
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					}
+	    		}
+    		}	
+    	}
+    }
+
+    /*Método que processa se jogador é vencedor analisando linhas, colunas e diagonais */
+    private boolean processarVencedor(int idJogador) {
+        boolean resultado = false;
+
+        // Verifica linhas
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (tabuleiro[i][j] != idJogador) {
+                    break;
+                }
+                if (j == 2) {
+                    resultado = true;
+                    System.out.println("Linhas Verificadas resultado = " + resultado);
+                    return true;
+                }
+            }
+            if (resultado) {
+                break;
+            }
+        }
+        System.out.println("Linhas Verificadas resultado = " + resultado);
+        // Verifica colunas
+        for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < 3; i++) {
+                if (tabuleiro[i][j] != idJogador) {
+                    break;
+                }
+                if (i == 2) {
+                    resultado = true;
+                    System.out.println("Colunas Verificadas resultado = " + resultado);
+                    return true;
+                }
+            }
+            if (resultado) {
+                break;
+            }
+        }
+        System.out.println("Colunas Verificadas resultado = " + resultado);
+        // Verifica diagonal principal
+        for (int i = 0; i < 3; i++) {
+            if (tabuleiro[i][i] != idJogador) {
+                break;
+            }
+            if (i == 2) {
+                resultado = true;
+                System.out.println("Diagonal Principal Verificada resultado = " + resultado);
                 return true;
             }
         }
+        System.out.println("Diagonal Principal Verificada resultado = " + resultado);
 
-        return false;
-    }
-
-    private boolean verificarEmpate() {
-        for (String s : tabuleiro) {
-            if (s.equals("")) {
-                return false;
+        // Verifica diagonal secundaria
+        for (int i = 2, j = 0; i >= 0; i--, j++) {
+            if (tabuleiro[i][j] != idJogador) {
+                break;
+            }
+            if (j == 2) {
+                resultado = true;
+                System.out.println("Diagonal Secundaria Verificada resultado = " + resultado);
+                return true;
             }
         }
-        return true;
-    }
-
-    public static void main(String[] args) {
-        try {
-            java.rmi.registry.LocateRegistry.createRegistry(2000);
-            JogoDaVelhaServidorIMP servidor = new JogoDaVelhaServidorIMP();
-            java.rmi.Naming.rebind("rmi://localhost:2000/JogoDaVelha", servidor);
-            System.out.println("Servidor RMI pronto.");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        System.out.println("Diagonal Secundaria Verificada resultado = " + resultado);
+        System.out.println("__________________________________________________");
+        return resultado;
     }
 }

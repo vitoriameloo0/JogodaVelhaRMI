@@ -4,6 +4,10 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 
 public class JogoDaVelhaCliente {
+    private static String ip = "localhost";
+    private static String porta = "1099";
+    private static String nomeServico = "JogoDaVelha";
+
     private static JogoDaVelhaClienteInterface jogador;
     private static TelaJogador tela;
 
@@ -19,7 +23,7 @@ public class JogoDaVelhaCliente {
 
     	/*Tenta localizar o serviço a partir do protocolo rmi e informações do servidor*/
         try {
-            String url = "rmi://localhost/JogoDaVelha";
+            String url = "rmi://" + ip + ":" + porta + "/" + nomeServico;
             JogoDaVelhaServidorInterface server = (JogoDaVelhaServidorInterface) Naming.lookup(url);
             /*Cria um jogador e uma tela, define a qual servidor essa tela pertence e então atribui
              * a mesma ao cliente(jogador)*/
